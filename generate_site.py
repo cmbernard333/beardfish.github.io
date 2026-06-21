@@ -226,7 +226,7 @@ def main():
         </main>
         
         <footer>
-            <p>&copy; 2026 Beardfish RPG Resources. Tales of the Valiant PreGens.</p>
+            <p>&copy; Kobold Press, Tales of the Valiant are trademarks of Open Design LLC. 2026. All Rights Reserved.</p>
         </footer>
     </div>
 </body>
