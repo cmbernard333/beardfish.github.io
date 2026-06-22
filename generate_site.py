@@ -13,7 +13,7 @@ SOURCE_CHEAT_DIR = os.environ.get(
 )
 SOURCE_IMG_DIR = os.environ.get(
     "SOURCE_IMG_DIR",
-    "/home/christian/Documents/Tales of the the Valiant/All Valiant 6/Images/PG2",
+    "/home/christian/Documents/Tales of the Valiant/All Valiant 6/Images/PG2",
 )
 TARGET_DIR = os.environ.get("TARGET_DIR", ".")
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg")
@@ -162,7 +162,9 @@ def main():
                 level_match = re.search(r"Level\s+(\d+)", file, re.IGNORECASE)
                 label = f"Level {level_match.group(1)} Sheet" if level_match else file
                 relative_url = f"../assets/pdf/{slug}/{file}"
-                pdf_links.append({"label": label, "url": relative_url})
+                pdf_link = {"label": label, "url": relative_url}
+                pdf_links.append(pdf_link)
+                print(f"Added PDF: {pdf_link}")
 
         # Find matching Cheat Sheet Folder
         cheat_folder_match = None
@@ -214,7 +216,7 @@ def main():
                 state = "before"
                 for line in lines:
                     stripped = line.strip()
-                    if state == "before" and stripped.lower().startswith("##") and "character summary" in stripped.lower():
+                    if state == "before" and stripped.lower().startswith("###") and "character summary" in stripped.lower():
                         state = "in_summary"
                         continue
                     if state == "in_summary" and stripped.startswith("## "):
@@ -250,7 +252,9 @@ def main():
         # or the slug (with underscores/hyphens). Search recursively.
         found_image = None
         try:
+            print(f"Processing images from {SOURCE_IMG_DIR}")
             for root, dirs, files in os.walk(SOURCE_IMG_DIR):
+                print(f"Processing images from {root}")
                 for file in files:
                     name_no_ext, ext = os.path.splitext(file)
                     if ext.lower() not in IMAGE_EXTS:
@@ -280,6 +284,7 @@ def main():
                 shutil.copy2(found_image, dest_img_path)
                 # update last added character entry with image filename
                 characters_data[-1]["image_filename"] = os.path.basename(found_image)
+                print(f"Found image: {found_image}")
             except Exception as e:
                 print(f"Warning: failed to copy image for {name}: {e}")
 
