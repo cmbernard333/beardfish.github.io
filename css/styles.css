@@ -4,19 +4,19 @@
     --bg-card: rgba(20, 20, 25, 0.65);
     --border-color: rgba(255, 255, 255, 0.08);
     --border-hover: rgba(139, 92, 246, 0.4);
-    
+
     --primary: #8b5cf6;
     --primary-glow: rgba(139, 92, 246, 0.15);
     --secondary: #d97706; /* Amber Gold for RPG theme */
     --secondary-glow: rgba(217, 119, 6, 0.15);
-    
+
     --text-primary: #f4f4f5;
     --text-secondary: #a1a1aa;
     --text-muted: #71717a;
-    
+
     --font-heading: 'Cinzel', Georgia, serif;
     --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    
+
     --transition-speed: 0.3s;
 }
 
@@ -468,6 +468,39 @@ h1, h2, h3, h4 {
     margin-top: 0.5rem;
 }
 
+/* Character Summary two-column layout (text + image) */
+.character-summary-row {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+.character-summary-row .summary-text {
+    flex: 1 1 60%;
+}
+.summary-image {
+    flex: 0 0 200px;
+    max-width: 200px;
+}
+.summary-image .char-image,
+.char-image {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    object-fit: cover;
+}
+
+@media (max-width: 768px) {
+    .character-summary-row {
+        flex-direction: column;
+    }
+    .summary-image {
+        max-width: 100%;
+        flex: 0 0 auto;
+    }
+}
+
 /* Footer Styling */
 footer {
     text-align: center;
@@ -502,19 +535,19 @@ footer {
     .container {
         padding: 1.5rem 1rem;
     }
-    
+
     .main-title {
         font-size: 2.25rem;
     }
-    
+
     .char-title {
         font-size: 2rem;
     }
-    
+
     .content-card {
         padding: 1.5rem;
     }
-    
+
     .roster-grid {
         grid-template-columns: 1fr;
     }

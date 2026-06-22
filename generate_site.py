@@ -16,6 +16,7 @@ SOURCE_IMG_DIR = os.environ.get(
     "/home/christian/Documents/Tales of the the Valiant/All Valiant 6/Images/PG2",
 )
 TARGET_DIR = os.environ.get("TARGET_DIR", ".")
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg")
 
 
 def slugify(text):
@@ -205,7 +206,30 @@ def main():
             if md_file_path:
                 with open(md_file_path, "r", encoding="utf-8") as f:
                     md_text = f.read()
-                md_content_html = markdown_to_html(md_text)
+                # Extract "Character Summary" section so we can render an image next to it.
+                lines = md_text.splitlines()
+                before_lines = []
+                summary_lines = []
+                after_lines = []
+                state = "before"
+                for line in lines:
+                    stripped = line.strip()
+                    if state == "before" and stripped.lower().startswith("##") and "character summary" in stripped.lower():
+                        state = "in_summary"
+                        continue
+                    if state == "in_summary" and stripped.startswith("## "):
+                        state = "after"
+                    if state == "before":
+                        before_lines.append(line)
+                    elif state == "in_summary":
+                        summary_lines.append(line)
+                    else:
+                        after_lines.append(line)
+
+                before_html = markdown_to_html("\n".join(before_lines)) if before_lines else ""
+                summary_html = markdown_to_html("\n".join(summary_lines)) if summary_lines else ""
+                after_html = markdown_to_html("\n".join(after_lines)) if after_lines else ""
+                md_content_html = {"before": before_html, "summary": summary_html, "after": after_html}
         else:
             print(f"Warning: No matching Cheat Sheet folder found for {base_name}")
 
@@ -217,8 +241,47 @@ def main():
                 "pdf_links": pdf_links,
                 "cheat_links": cheat_links,
                 "content_html": md_content_html,
+                "image_filename": None,
             }
         )
+
+        # Look for a matching image file in SOURCE_IMG_DIR. We accept several common image extensions.
+        # Matching strategy: look for a file whose base name equals the pregen folder name, the base_name,
+        # or the slug (with underscores/hyphens). Search recursively.
+        found_image = None
+        try:
+            for root, dirs, files in os.walk(SOURCE_IMG_DIR):
+                for file in files:
+                    name_no_ext, ext = os.path.splitext(file)
+                    if ext.lower() not in IMAGE_EXTS:
+                        continue
+                    candidates = set()
+                    candidates.add(pregen_folder)
+                    candidates.add(base_name)
+                    candidates.add(slug)
+                    # also variations
+                    candidates.add(name.replace(" ", "_").lower())
+                    candidates.add(name.replace(" ", "-").lower())
+                    candidates.add(slug.replace("-", "_").lower())
+
+                    if name_no_ext.lower() in {c.lower() for c in candidates}:
+                        found_image = os.path.join(root, file)
+                        break
+                if found_image:
+                    break
+        except Exception:
+            found_image = None
+
+        if found_image:
+            dest_img_subdir = os.path.join(dest_img_dir, slug)
+            os.makedirs(dest_img_subdir, exist_ok=True)
+            dest_img_path = os.path.join(dest_img_subdir, os.path.basename(found_image))
+            try:
+                shutil.copy2(found_image, dest_img_path)
+                # update last added character entry with image filename
+                characters_data[-1]["image_filename"] = os.path.basename(found_image)
+            except Exception as e:
+                print(f"Warning: failed to copy image for {name}: {e}")
 
     # Now generate the HTML files
     # 1. Main CSS file is generated elsewhere
@@ -239,6 +302,25 @@ def main():
                 for link in char["cheat_links"]
             ]
         )
+
+        # Build the cheat sheet content HTML, inserting character image next to the Character Summary when available.
+        content_html_rendered = ""
+        ch_content = char.get("content_html")
+        if isinstance(ch_content, dict):
+            before_html = ch_content.get("before", "")
+            summary_html = ch_content.get("summary", "")
+            after_html = ch_content.get("after", "")
+            image_html = ""
+            if char.get("image_filename"):
+                image_html = f'<div class="summary-image"><img src="../assets/img/{char["slug"]}/{char["image_filename"]}" alt="{char["name"]}" class="char-image"/></div>'
+            # Two-column layout: text on left, image on right
+            if summary_html:
+                summary_block = f'<div class="character-summary-row"><div class="summary-text">{summary_html}</div>{image_html}</div>'
+            else:
+                summary_block = image_html
+            content_html_rendered = before_html + summary_block + after_html
+        else:
+            content_html_rendered = ch_content or ""
 
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -281,7 +363,7 @@ def main():
 
         <main class="content-card">
             <div class="cheat-sheet-content">
-                {char["content_html"]}
+                {content_html_rendered}
             </div>
         </main>
 
