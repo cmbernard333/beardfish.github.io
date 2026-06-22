@@ -3,22 +3,36 @@ import shutil
 import re
 
 # Paths
-SOURCE_PREGEN_DIR = "/home/christian/Documents/Tales of the Valiant/All Valiant 6/Valiant 6 PreGen Character Sheets/PG2"
-SOURCE_CHEAT_DIR = "/home/christian/Documents/Tales of the Valiant/All Valiant 6/Cheat Sheets/PG2"
-TARGET_DIR = "/home/christian/Documents/Code/beardfish.github.io"
+SOURCE_PREGEN_DIR = os.environ.get(
+    "SOURCE_PREGEN_DIR",
+    "/home/christian/Documents/Tales of the Valiant/All Valiant 6/Valiant 6 PreGen Character Sheets/PG2",
+)
+SOURCE_CHEAT_DIR = os.environ.get(
+    "SOURCE_CHEAT_DIR",
+    "/home/christian/Documents/Tales of the Valiant/All Valiant 6/Cheat Sheets/PG2",
+)
+SOURCE_IMG_DIR = os.environ.get(
+    "SOURCE_IMG_DIR",
+    "/home/christian/Documents/Tales of the Valiant/All Valiant 6/Images/PG2",
+)
+TARGET_DIR = os.environ.get("TARGET_DIR", ".")
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg")
+
 
 def slugify(text):
     text = text.lower()
-    text = re.sub(r'[^a-z0-9]+', '-', text)
-    return text.strip('-')
+    text = re.sub(r"[^a-z0-9]+", "-", text)
+    return text.strip("-")
+
 
 def parse_inline(text):
     # bold **text**
-    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r"\*\*(.*?)\*\*", r"<strong>\1</strong>", text)
     # italic *text* or _text_
-    text = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text)
-    text = re.sub(r'_(.*?)_', r'<em>\1</em>', text)
+    text = re.sub(r"\*(.*?)\*", r"<em>\1</em>", text)
+    text = re.sub(r"_(.*?)_", r"<em>\1</em>", text)
     return text
+
 
 def markdown_to_html(md_text):
     html_lines = []
@@ -30,22 +44,32 @@ def markdown_to_html(md_text):
                 html_lines.append("</ul>")
                 in_list = False
             continue
-        
+
         # Headers
         if line_stripped.startswith("# "):
-            if in_list: html_lines.append("</ul>"); in_list = False
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
             html_lines.append(f"<h1>{parse_inline(line_stripped[2:])}</h1>")
         elif line_stripped.startswith("## "):
-            if in_list: html_lines.append("</ul>"); in_list = False
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
             html_lines.append(f"<h2>{parse_inline(line_stripped[3:])}</h2>")
         elif line_stripped.startswith("### "):
-            if in_list: html_lines.append("</ul>"); in_list = False
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
             html_lines.append(f"<h3>{parse_inline(line_stripped[4:])}</h3>")
         elif line_stripped.startswith("#### "):
-            if in_list: html_lines.append("</ul>"); in_list = False
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
             html_lines.append(f"<h4>{parse_inline(line_stripped[5:])}</h4>")
         elif line_stripped.startswith("---"):
-            if in_list: html_lines.append("</ul>"); in_list = False
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
             html_lines.append("<hr>")
         # Bullet lists
         elif line_stripped.startswith("* ") or line_stripped.startswith("- "):
@@ -55,38 +79,57 @@ def markdown_to_html(md_text):
             content = line_stripped[2:]
             html_lines.append(f"<li>{parse_inline(content)}</li>")
         else:
-            if in_list: html_lines.append("</ul>"); in_list = False
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
             html_lines.append(f"<p>{parse_inline(line_stripped)}</p>")
-            
+
     if in_list:
         html_lines.append("</ul>")
     return "\n".join(html_lines)
 
+
 def main():
     print("Starting site generation...")
-    
+
     # Destination assets directories
     dest_pdf_dir = os.path.join(TARGET_DIR, "assets", "pdf")
     dest_cheatsheet_dir = os.path.join(TARGET_DIR, "assets", "cheatsheet")
+    dest_img_dir = os.path.join(TARGET_DIR, "assets", "img")
     dest_chars_dir = os.path.join(TARGET_DIR, "characters")
-    
+
     os.makedirs(dest_pdf_dir, exist_ok=True)
     os.makedirs(dest_cheatsheet_dir, exist_ok=True)
+    os.makedirs(dest_img_dir, exist_ok=True)
     os.makedirs(dest_chars_dir, exist_ok=True)
-    
+
     # Get all PG2 character folders
-    pregen_folders = sorted([f for f in os.listdir(SOURCE_PREGEN_DIR) if os.path.isdir(os.path.join(SOURCE_PREGEN_DIR, f))])
-    cheat_folders = sorted([f for f in os.listdir(SOURCE_CHEAT_DIR) if os.path.isdir(os.path.join(SOURCE_CHEAT_DIR, f))])
-    
-    print(f"Found {len(pregen_folders)} PreGen folders and {len(cheat_folders)} Cheat Sheet folders.")
-    
+    pregen_folders = sorted(
+        [
+            f
+            for f in os.listdir(SOURCE_PREGEN_DIR)
+            if os.path.isdir(os.path.join(SOURCE_PREGEN_DIR, f))
+        ]
+    )
+    cheat_folders = sorted(
+        [
+            f
+            for f in os.listdir(SOURCE_CHEAT_DIR)
+            if os.path.isdir(os.path.join(SOURCE_CHEAT_DIR, f))
+        ]
+    )
+
+    print(
+        f"Found {len(pregen_folders)} PreGen folders and {len(cheat_folders)} Cheat Sheet folders."
+    )
+
     characters_data = []
-    
+
     for pregen_folder in pregen_folders:
         # Expected base format: "02 Avena Elodie - Human Witch - Character Sheets"
         # We can extract the main base name by removing " - Character Sheets"
         base_name = pregen_folder.replace(" - Character Sheets", "").strip()
-        
+
         # Extract Name and Class
         # e.g., "02 Avena Elodie - Human Witch"
         # Let's split by " - "
@@ -94,33 +137,35 @@ def main():
         if len(parts) >= 2:
             raw_name = parts[0]
             # Strip leading numbers/spaces, e.g. "02 Avena Elodie" -> "Avena Elodie"
-            name = re.sub(r'^\d+\s+', '', raw_name).strip()
+            name = re.sub(r"^\d+\s+", "", raw_name).strip()
             char_class = parts[1].strip()
         else:
             name = base_name
             char_class = "Unknown"
-            
+
         slug = slugify(name)
         print(f"Processing: {name} (Class: {char_class}, Slug: {slug})")
-        
+
         # Copy Character Sheet PDFs
         char_sheet_src_dir = os.path.join(SOURCE_PREGEN_DIR, pregen_folder)
         char_sheet_dest_dir = os.path.join(dest_pdf_dir, slug)
         os.makedirs(char_sheet_dest_dir, exist_ok=True)
-        
+
         pdf_links = []
         for file in sorted(os.listdir(char_sheet_src_dir)):
             if file.endswith(".pdf"):
                 src_path = os.path.join(char_sheet_src_dir, file)
                 dest_path = os.path.join(char_sheet_dest_dir, file)
                 shutil.copy2(src_path, dest_path)
-                
+
                 # We need a nice label, e.g. "Level 1" or "Level 2"
-                level_match = re.search(r'Level\s+(\d+)', file, re.IGNORECASE)
+                level_match = re.search(r"Level\s+(\d+)", file, re.IGNORECASE)
                 label = f"Level {level_match.group(1)} Sheet" if level_match else file
                 relative_url = f"../assets/pdf/{slug}/{file}"
-                pdf_links.append({"label": label, "url": relative_url})
-                
+                pdf_link = {"label": label, "url": relative_url}
+                pdf_links.append(pdf_link)
+                print(f"Added PDF: {pdf_link}")
+
         # Find matching Cheat Sheet Folder
         cheat_folder_match = None
         for cf in cheat_folders:
@@ -128,65 +173,167 @@ def main():
             if cf_base == base_name:
                 cheat_folder_match = cf
                 break
-                
+
         cheat_links = []
         md_content_html = ""
-        
+
         if cheat_folder_match:
             cheat_src_dir = os.path.join(SOURCE_CHEAT_DIR, cheat_folder_match)
             cheat_dest_dir = os.path.join(dest_cheatsheet_dir, slug)
             os.makedirs(cheat_dest_dir, exist_ok=True)
-            
+
             # Find the markdown file and PDF/DOCX files
             md_file_path = None
             for file in sorted(os.listdir(cheat_src_dir)):
                 src_path = os.path.join(cheat_src_dir, file)
                 dest_path = os.path.join(cheat_dest_dir, file)
                 shutil.copy2(src_path, dest_path)
-                
+
                 relative_url = f"../assets/cheatsheet/{slug}/{file}"
-                
+
                 if file.endswith(".md"):
                     md_file_path = src_path
-                    cheat_links.append({"label": "Cheat Sheet (Markdown Source)", "url": relative_url})
+                    cheat_links.append(
+                        {"label": "Cheat Sheet (Markdown Source)", "url": relative_url}
+                    )
                 elif file.endswith(".pdf"):
-                    cheat_links.append({"label": "Cheat Sheet (PDF)", "url": relative_url})
+                    cheat_links.append(
+                        {"label": "Cheat Sheet (PDF)", "url": relative_url}
+                    )
                 elif file.endswith(".docx"):
-                    cheat_links.append({"label": "Cheat Sheet (Word)", "url": relative_url})
-                    
+                    cheat_links.append(
+                        {"label": "Cheat Sheet (Word)", "url": relative_url}
+                    )
+
             if md_file_path:
                 with open(md_file_path, "r", encoding="utf-8") as f:
                     md_text = f.read()
-                md_content_html = markdown_to_html(md_text)
+                # Extract "Character Summary" section so we can render an image next to it.
+                lines = md_text.splitlines()
+                before_lines = []
+                summary_lines = []
+                after_lines = []
+                state = "before"
+                for line in lines:
+                    stripped = line.strip()
+                    if state == "before" and stripped.lower().startswith("###") and "character summary" in stripped.lower():
+                        state = "in_summary"
+                        continue
+                    if state == "in_summary" and stripped.startswith("## "):
+                        state = "after"
+                    if state == "before":
+                        before_lines.append(line)
+                    elif state == "in_summary":
+                        summary_lines.append(line)
+                    else:
+                        after_lines.append(line)
+
+                before_html = markdown_to_html("\n".join(before_lines)) if before_lines else ""
+                summary_html = markdown_to_html("\n".join(summary_lines)) if summary_lines else ""
+                after_html = markdown_to_html("\n".join(after_lines)) if after_lines else ""
+                md_content_html = {"before": before_html, "summary": summary_html, "after": after_html}
         else:
             print(f"Warning: No matching Cheat Sheet folder found for {base_name}")
-            
-        characters_data.append({
-            "name": name,
-            "class": char_class,
-            "slug": slug,
-            "pdf_links": pdf_links,
-            "cheat_links": cheat_links,
-            "content_html": md_content_html
-        })
-        
+
+        characters_data.append(
+            {
+                "name": name,
+                "class": char_class,
+                "slug": slug,
+                "pdf_links": pdf_links,
+                "cheat_links": cheat_links,
+                "content_html": md_content_html,
+                "image_filename": None,
+            }
+        )
+
+        # Look for a matching image file in SOURCE_IMG_DIR. We accept several common image extensions.
+        # Matching strategy: look for a file whose base name equals the pregen folder name, the base_name,
+        # or the slug (with underscores/hyphens). Search recursively.
+        found_image = None
+        try:
+            print(f"Processing images from {SOURCE_IMG_DIR}")
+            for root, dirs, files in os.walk(SOURCE_IMG_DIR):
+                print(f"Processing images from {root}")
+                for file in files:
+                    name_no_ext, ext = os.path.splitext(file)
+                    if ext.lower() not in IMAGE_EXTS:
+                        continue
+                    candidates = set()
+                    candidates.add(pregen_folder)
+                    candidates.add(base_name)
+                    candidates.add(slug)
+                    # also variations
+                    candidates.add(name.replace(" ", "_").lower())
+                    candidates.add(name.replace(" ", "-").lower())
+                    candidates.add(slug.replace("-", "_").lower())
+
+                    if name_no_ext.lower() in {c.lower() for c in candidates}:
+                        found_image = os.path.join(root, file)
+                        break
+                if found_image:
+                    break
+        except Exception:
+            found_image = None
+
+        if found_image:
+            dest_img_subdir = os.path.join(dest_img_dir, slug)
+            os.makedirs(dest_img_subdir, exist_ok=True)
+            dest_img_path = os.path.join(dest_img_subdir, os.path.basename(found_image))
+            try:
+                shutil.copy2(found_image, dest_img_path)
+                # update last added character entry with image filename
+                characters_data[-1]["image_filename"] = os.path.basename(found_image)
+                print(f"Found image: {found_image}")
+            except Exception as e:
+                print(f"Warning: failed to copy image for {name}: {e}")
+
     # Now generate the HTML files
     # 1. Main CSS file is generated elsewhere
-    
+
     # 2. Character Pages
     for char in characters_data:
         char_page_path = os.path.join(dest_chars_dir, f"{char['slug']}.html")
-        
-        pdf_buttons = "".join([f'<a href="{link["url"]}" class="btn pdf-btn" download><i class="fas fa-file-pdf"></i> {link["label"]}</a>' for link in char["pdf_links"]])
-        cheat_buttons = "".join([f'<a href="{link["url"]}" class="btn cheat-btn" download><i class="fas fa-file-alt"></i> {link["label"]}</a>' for link in char["cheat_links"]])
-        
+
+        pdf_buttons = "".join(
+            [
+                f'<a href="{link["url"]}" class="btn pdf-btn" download><i class="fas fa-file-pdf"></i> {link["label"]}</a>'
+                for link in char["pdf_links"]
+            ]
+        )
+        cheat_buttons = "".join(
+            [
+                f'<a href="{link["url"]}" class="btn cheat-btn" download><i class="fas fa-file-alt"></i> {link["label"]}</a>'
+                for link in char["cheat_links"]
+            ]
+        )
+
+        # Build the cheat sheet content HTML, inserting character image next to the Character Summary when available.
+        content_html_rendered = ""
+        ch_content = char.get("content_html")
+        if isinstance(ch_content, dict):
+            before_html = ch_content.get("before", "")
+            summary_html = ch_content.get("summary", "")
+            after_html = ch_content.get("after", "")
+            image_html = ""
+            if char.get("image_filename"):
+                image_html = f'<div class="summary-image"><img src="../assets/img/{char["slug"]}/{char["image_filename"]}" alt="{char["name"]}" class="char-image"/></div>'
+            # Two-column layout: text on left, image on right
+            if summary_html:
+                summary_block = f'<div class="character-summary-row"><div class="summary-text">{summary_html}</div>{image_html}</div>'
+            else:
+                summary_block = image_html
+            content_html_rendered = before_html + summary_block + after_html
+        else:
+            content_html_rendered = ch_content or ""
+
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{char['name']} - {char['class']} | Beardfish RPG Resources</title>
-    <meta name="description" content="Cheat sheet and character sheets for {char['name']}, the {char['class']} in Tales of the Valiant RPG.">
+    <title>{char["name"]} - {char["class"]} | Beardfish RPG Resources</title>
+    <meta name="description" content="Cheat sheet and character sheets for {char["name"]}, the {char["class"]} in Tales of the Valiant RPG.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -198,8 +345,8 @@ def main():
     <div class="container">
         <header class="char-header">
             <a href="../index.html" class="back-link"><i class="fas fa-arrow-left"></i> Back to Roster</a>
-            <h1 class="char-title">{char['name']}</h1>
-            <p class="char-subtitle">{char['class']}</p>
+            <h1 class="char-title">{char["name"]}</h1>
+            <p class="char-subtitle">{char["class"]}</p>
         </header>
 
         <section class="downloads-section">
@@ -221,10 +368,10 @@ def main():
 
         <main class="content-card">
             <div class="cheat-sheet-content">
-                {char['content_html']}
+                {content_html_rendered}
             </div>
         </main>
-        
+
         <footer>
             <p>&copy; Kobold Press, Tales of the Valiant are trademarks of Open Design LLC. 2026. All Rights Reserved.</p>
         </footer>
@@ -234,13 +381,13 @@ def main():
 """
         with open(char_page_path, "w", encoding="utf-8") as f:
             f.write(html_content)
-            
+
     # 3. Index Page
     index_path = os.path.join(TARGET_DIR, "index.html")
     char_list_html = ""
     for char in characters_data:
         # Determine class icons for styling or decorative elements
-        icon_class = "fa-wand-magic-sparkles" # Witch
+        icon_class = "fa-wand-magic-sparkles"  # Witch
         cls_lower = char["class"].lower()
         if "witch" in cls_lower:
             icon_class = "fa-hat-wizard"
@@ -254,21 +401,21 @@ def main():
             icon_class = "fa-gavel"
         elif "ranger" in cls_lower:
             icon_class = "fa-location-crosshairs"
-            
+
         char_list_html += f"""
-        <a href="characters/{char['slug']}.html" class="char-card" id="char-card-{char['slug']}">
+        <a href="characters/{char["slug"]}.html" class="char-card" id="char-card-{char["slug"]}">
             <div class="card-glow"></div>
             <div class="card-icon"><i class="fas {icon_class}"></i></div>
             <div class="card-info">
-                <h2>{char['name']}</h2>
-                <p class="class-tag">{char['class']}</p>
+                <h2>{char["name"]}</h2>
+                <p class="class-tag">{char["class"]}</p>
             </div>
             <div class="card-arrow">
                 <i class="fas fa-chevron-right"></i>
             </div>
         </a>
         """
-        
+
     index_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -306,8 +453,9 @@ def main():
 """
     with open(index_path, "w", encoding="utf-8") as f:
         f.write(index_content)
-        
+
     print("Site generation complete!")
+
 
 if __name__ == "__main__":
     main()
